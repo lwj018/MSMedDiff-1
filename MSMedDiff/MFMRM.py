@@ -29,6 +29,31 @@ class LayerNorm(nn.Module):
             x = (x - u) / torch.sqrt(s + self.eps)
             x = self.weight[:, None, None] * x + self.bias[:, None, None]
             return x
+        
+class DoubleConv(nn.Module):
+    def __init__(self, in_channels, out_channels, mid_channels=None, residual=False):
+        super().__init__()
+        self.residual = residual
+        if not mid_channels:
+            mid_channels = out_channels
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
+            nn.GroupNorm(1, mid_channels),
+            nn.GELU(),
+            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
+            nn.GroupNorm(1, out_channels),
+
+            # # 增加协方差矩阵
+            # CovarianceModule(out_channels),
+        )
+
+    def forward(self, x):
+
+        if self.residual:
+
+            return F.gelu(x + self.double_conv(x))
+        else:
+            return self.double_conv(x)
 
 class MDWC(nn.Module):
     def __init__(self, dim):
@@ -80,3 +105,20 @@ class MCMM(nn.Module):
         out = self.act(out) * x
         return out+no_norm
 
+
+
+class MFMRM(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.MCMM=MCMM(in_channels)
+        self.RDCM = nn.Sequential(
+            DoubleConv(in_channels, in_channels, residual=True),
+            DoubleConv(in_channels, out_channels),
+        )
+
+    def forward(self, x, skip_x):
+        x = torch.cat([skip_x, x], dim=1)
+        x=self.MCMM(x)
+        x = self.RDCM(x)
+        return x 

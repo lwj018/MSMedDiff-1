@@ -197,7 +197,7 @@ class Up(nn.Module):
         self.attn = attn
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
 
-        self.mfmrm=MFMRM(in_channels)
+        self.mfmrm=MFMRM(in_channels, out_channels)
 
         self.emb_layer = nn.Sequential(
 
@@ -489,3 +489,4 @@ class UNet_conditional(nn.Module):
 #     t = x.new_tensor([500] * x.shape[0]).long()
 #     y = x.new_tensor([1] * x.shape[0]).long()
 #     print(net(x, t, y).shape)
+

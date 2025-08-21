@@ -4,7 +4,7 @@ import numpy as np
 from ex_fea import *
 
 
-from MCMM import MCMM 
+from MFMRM import MFMRM 
 
 
 # ==============================================
@@ -197,12 +197,7 @@ class Up(nn.Module):
         self.attn = attn
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
 
-        self.RDCM = nn.Sequential(
-            DoubleConv(in_channels, in_channels, residual=True),
-            DoubleConv(in_channels, out_channels),
-
-        )
-        self.MCMM=MCMM(in_channels)
+        self.mfmrm=MFMRM(in_channels)
 
         self.emb_layer = nn.Sequential(
 
@@ -215,10 +210,7 @@ class Up(nn.Module):
 
     def forward(self, x, skip_x, t):
         x = self.up(x)
-        x = torch.cat([skip_x, x], dim=1)
-        x=self.MCMM(x)
-
-        x = self.RDCM(x)
+        x=self.mfmrm(x, skip_x)
         emb = self.emb_layer(t)[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
         return x + emb
         #return x
@@ -391,14 +383,14 @@ class UNet_conditional(nn.Module):
         # self.up1 = StarUp(1024, 256)  # 512  256
         # self.up2 = StarUp(512, 128)  # 256 64
 
-        self.MFMRM1 = Up(1024, 256)  # 512  256
-        self.MFMRM2 = Up(512, 128)  # 256 64
+        self.up1 = Up(1024, 256)  # 512  256
+        self.up2 = Up(512, 128)  # 256 64
 
-        self.MFMRM3 = Up(256, 64)  # 128 64
+        self.up3 = Up(256, 64)  # 128 64
 
-        self.MFMRM4 = Up(128, 32)  # 128 64
+        self.up4 = Up(128, 32)  # 128 64
 
-        self.MFMRM5 = Up(64, 32)  # 128 64
+        self.up5 = Up(64, 32)  # 128 64
 
         self.outc = nn.Conv2d(32, c_out, kernel_size=1)
 
@@ -473,15 +465,15 @@ class UNet_conditional(nn.Module):
         x6 = self.bot3(x6)
         x6 = self.sa3(x6)
 
-        x = self.MFMRM1(x6, x5, t)
+        x = self.up1(x6, x5, t)
 
-        x = self.MFMRM2(x, x4, t)
+        x = self.up2(x, x4, t)
 
-        x = self.MFMRM3(x, x3, t)
+        x = self.up3(x, x3, t)
 
-        x = self.MFMRM4(x, x2, t)
+        x = self.up4(x, x2, t)
 
-        x = self.MFMRM5(x, x1, t)
+        x = self.up5(x, x1, t)
 
         output = self.outc(x)
 
